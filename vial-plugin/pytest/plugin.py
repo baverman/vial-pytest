@@ -17,7 +17,7 @@ def get_collector():
     return collector
 
 
-def run_test(project_dir, executable=None, match=None, files=[], env=None):
+def run_test(project_dir, executable=None, match=None, files=None, env=None):
     from subprocess import Popen
     from multiprocessing.connection import Client, arbitrary_address
 
@@ -36,7 +36,9 @@ def run_test(project_dir, executable=None, match=None, files=[], env=None):
 
     log = open('/tmp/vial-pytest.log', 'w')
 
-    args.extend(files)
+    if files:
+        args.extend(files)
+
     proc = Popen(args, cwd=project_dir, env=environ, stdout=log, stderr=log, close_fds=True)
     start = time.time()
     while not os.path.exists(addr):
@@ -48,8 +50,10 @@ def run_test(project_dir, executable=None, match=None, files=[], env=None):
 
     return proc, conn
 
+
 def indent(width, lines):
     return ['    ' * width + r for r in lines]
+
 
 class ResultCollector(object):
     def init_buf(self):
@@ -108,17 +112,12 @@ class ResultCollector(object):
             elif cmd in ('PASS', 'ERROR', 'FAIL', 'SKIP'):
                 self.add_test_result(*msg)
 
+
 def run(*args):
     project = os.getcwd()
-    if not args:
-        file = vfunc.expand('%')
-    else:
-        file = args[0]
+    files = None
+    if args:
+        files = [vfunc.expand(r) for r in args]
 
-    proc, conn = run_test(project, files=[file])
-
-    # buf.options['number']    = 0
-    # buf.options['colorcolumn'] = ''
-    # buf.options['stl']         = 'pytest'
-
+    proc, conn = run_test(project, files=files)
     get_collector().collect(conn)
