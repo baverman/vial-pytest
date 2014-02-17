@@ -1,9 +1,11 @@
 import sys
-import os.path
 import time
+import os.path
+
+from collections import Counter
 
 from vial import vfunc, vim
-from vial.utils import get_buf_by_name, redraw, get_winbuf
+from vial.utils import get_buf_by_name, redraw, get_winbuf, focus_window
 
 
 collector = None
@@ -46,43 +48,54 @@ def run_test(project_dir, executable=None, match=None, files=[], env=None):
 
     return proc, conn
 
+def indent(width, lines):
+    return ['    ' * width + r for r in lines]
 
 class ResultCollector(object):
     def init_buf(self):
         win, self.buf = get_winbuf('__vial_pytest__')
         if not self.buf:
-            vim.command('badd __vial_pytest__')
+            vim.command('silent badd __vial_pytest__')
             self.buf = get_buf_by_name('__vial_pytest__')
 
         vfunc.setbufvar(self.buf.number, '&buflisted', 0)
         vfunc.setbufvar(self.buf.number, '&buftype', 'nofile')
         vfunc.setbufvar(self.buf.number, '&swapfile', 0)
 
-        # if not win:
-        #     vim.command('sbuffer {}'.format(self.buf.number))
+        if not win:
+            vim.command('silent botright sbuffer {}'.format(self.buf.number))
+            vim.command('setlocal stl=pytest nonumber colorcolumn= foldmethod=manual')
+        else:
+            focus_window(win)
 
         if len(self.buf) > 1:
             self.buf[0:] = ['']
 
     def add_test_result(self, rtype, name, result):
+        self.counts[rtype] += 1
         lines = ['{} {}'.format(rtype, name)]
 
         trace, out = result
         if trace:
-            lines.extend(trace.splitlines())
+            lines.extend(indent(1, trace.splitlines()))
+            lines.append('')
 
         for k, v in out:
-            lines.append('----======= {} =======----'.format(k))
-            lines.extend(v.splitlines())
+            lines.append('    ----======= {} =======----'.format(k))
+            lines.extend(indent(1, v.splitlines()))
 
+        lines.append('')
         lines.append('')
 
         buflen = len(self.buf)
         self.buf[buflen-1:] = lines
+        vim.command('norm! {}Gzf{}j'.format(buflen, len(lines) - 2))
         redraw()
 
     def collect(self, conn):
         self.tests = []
+        self.counts = Counter()
+
         self.init_buf()
 
         while True:
