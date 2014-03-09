@@ -6,6 +6,7 @@ from collections import Counter
 
 from vial import vfunc, vim
 from vial.utils import get_buf_by_name, redraw, get_winbuf, focus_window
+from vial.widgets import make_scratch
 
 
 collector = None
@@ -52,55 +53,44 @@ def run_test(project_dir, executable=None, match=None, files=None, env=None):
 
 
 def indent(width, lines):
-    return ['    ' * width + r for r in lines]
+    return ['  ' * width + r for r in lines]
 
 
 class ResultCollector(object):
-    def init_buf(self):
-        win, self.buf = get_winbuf('__vial_pytest__')
-        if not self.buf:
-            vim.command('silent badd __vial_pytest__')
-            self.buf = get_buf_by_name('__vial_pytest__')
+    def init(self, win, buf):
+        vim.command('setlocal syntax=vialpytest')
+        focus_window(win)
 
-        vfunc.setbufvar(self.buf.number, '&buflisted', 0)
-        vfunc.setbufvar(self.buf.number, '&buftype', 'nofile')
-        vfunc.setbufvar(self.buf.number, '&swapfile', 0)
-
-        if not win:
-            vim.command('silent botright sbuffer {}'.format(self.buf.number))
-            vim.command('setlocal stl=pytest nonumber colorcolumn= foldmethod=manual')
-        else:
-            focus_window(win)
-
+    def reset(self):
+        _, self.buf = make_scratch('__vial_pytest__', self.init, 'pytest')
         if len(self.buf) > 1:
             self.buf[0:] = ['']
 
     def add_test_result(self, rtype, name, result):
         self.counts[rtype] += 1
-        lines = ['{} {}'.format(rtype, name)]
+        lines = ['{} {}'.format(name, rtype)]
 
         trace, out = result
+        for k, v in out:
+            lines.append('  ----======= {} =======----'.format(k))
+            lines.extend(indent(1, v.splitlines()))
+            lines.append('')
+
         if trace:
             lines.extend(indent(1, trace.splitlines()))
             lines.append('')
 
-        for k, v in out:
-            lines.append('    ----======= {} =======----'.format(k))
-            lines.extend(indent(1, v.splitlines()))
-
-        lines.append('')
         lines.append('')
 
         buflen = len(self.buf)
         self.buf[buflen-1:] = lines
-        vim.command('norm! {}Gzf{}j'.format(buflen, len(lines) - 2))
         redraw()
 
     def collect(self, conn):
         self.tests = []
         self.counts = Counter()
 
-        self.init_buf()
+        self.reset()
 
         while True:
             msg = conn.recv()
@@ -109,7 +99,7 @@ class ResultCollector(object):
                 return
             elif cmd == 'COLLECTED_TESTS':
                 self.tests[:] = cmd[1]
-            elif cmd in ('PASS', 'ERROR', 'FAIL', 'SKIP'):
+            elif cmd in ('PASS', 'ERROR', 'FAIL', 'SKIP', 'FAILED_COLLECT'):
                 self.add_test_result(*msg)
 
 
