@@ -4,7 +4,7 @@ import os.path
 
 from collections import Counter
 
-from vial import vfunc, vim
+from vial import vfunc, vim, dref
 from vial.utils import get_buf_by_name, redraw, get_winbuf, focus_window
 from vial.widgets import make_scratch
 
@@ -56,9 +56,19 @@ def indent(width, lines):
     return ['  ' * width + r for r in lines]
 
 
+@dref
+def goto_file():
+    filename, line = vfunc.expand('<cWORD>').split(':')[:2]
+    for win in vim.windows:
+        if vfunc.buflisted(win.buffer.number):
+            focus_window(win)
+            vim.command('e +{} {}'.format(line, filename))
+
+
 class ResultCollector(object):
     def init(self, win, buf):
         vim.command('setlocal syntax=vialpytest')
+        vim.command('nnoremap <buffer> gf :python {}()<cr>'.format(goto_file.ref))
         focus_window(win)
 
     def reset(self):
