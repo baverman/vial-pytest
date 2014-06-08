@@ -69,7 +69,6 @@ class ResultCollector(object):
     def init(self, win, buf):
         vim.command('setlocal syntax=vialpytest')
         vim.command('nnoremap <buffer> gf :python {}()<cr>'.format(goto_file.ref))
-        focus_window(win)
 
     def reset(self):
         _, self.buf = make_scratch('__vial_pytest__', self.init, 'pytest')
