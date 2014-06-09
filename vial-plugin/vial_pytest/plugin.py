@@ -118,5 +118,12 @@ def run(*args):
     if args:
         files = [vfunc.expand(r) for r in args]
 
-    proc, conn = run_test(project, files=files)
+    try:
+        f = vfunc.VialPythonGetExecutable
+    except vim.error:
+        executable = None
+    else:
+        executable = f()
+
+    proc, conn = run_test(project, files=files, executable=executable)
     get_collector().collect(conn)
