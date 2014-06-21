@@ -71,7 +71,7 @@ class ResultCollector(object):
         vim.command('nnoremap <buffer> gf :python {}()<cr>'.format(goto_file.ref))
 
     def reset(self):
-        _, self.buf = make_scratch('__vial_pytest__', self.init, 'pytest')
+        _, self.buf = make_scratch('__vial_pytest__', self.init, 'pytest', focus=False)
         if len(self.buf) > 1:
             self.buf[0:] = ['']
 
