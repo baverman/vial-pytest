@@ -5,7 +5,7 @@ import os.path
 from collections import Counter
 
 from vial import vfunc, vim, dref
-from vial.utils import get_buf_by_name, redraw, get_winbuf, focus_window
+from vial.utils import redraw, focus_window
 from vial.widgets import make_scratch
 
 
@@ -71,9 +71,11 @@ class ResultCollector(object):
         vim.command('nnoremap <buffer> gf :python {}()<cr>'.format(goto_file.ref))
 
     def reset(self):
-        _, self.buf = make_scratch('__vial_pytest__', self.init, 'pytest', focus=False)
-        if len(self.buf) > 1:
-            self.buf[0:] = ['']
+        cwin = vim.current.window
+        _, self.buf = make_scratch('__vial_pytest__', self.init, 'pytest')
+        vim.command('normal! ggdG')
+        focus_window(cwin)
+        redraw()
 
     def add_test_result(self, rtype, name, result):
         self.counts[rtype] += 1
